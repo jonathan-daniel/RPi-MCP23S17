@@ -25,7 +25,6 @@ import spidev
 import RPi.GPIO as GPIO
 import time
 
-
 class MCP23S17(object):
     """This class provides an abstraction of the GPIO expander MCP23S17
     for the Raspberry Pi.
@@ -34,7 +33,6 @@ class MCP23S17(object):
     be get from https://pypi.python.org/pypi/RPi.GPIO/0.5.11 and
     https://pypi.python.org/pypi/spidev.
     """
-
     PULLUP_ENABLED = 0
     PULLUP_DISABLED = 1
 
@@ -76,44 +74,44 @@ class MCP23S17(object):
     MCP23S17_CMD_WRITE = 0x40
     MCP23S17_CMD_READ = 0x41
 
-    def __init__(self, bus=0, ce=0, deviceID=0x00):
-        """Constructor
+    def __init__(self, spi, deviceID, pinCS, pinReset):
+        """
+        Constructor
         Initializes all attributes with 0.
 
         Keyword arguments:
-        bus -- The SPI bus number
-        ce -- The chip-enable number for the SPI
+        spi -- the SPI dev
         deviceID -- The device ID of the component, i.e., the hardware address (default 0.0)
+        pinCS -- The Chip Select pin of the MCP
+        pinReset -- The Reset pin of the MCP
         """
-
-        self.spi = spidev.SpiDev()
-
-        # GPIO fix for making CE signal work
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setwarnings(False)
-        GPIO.setup(24, GPIO.OUT)
-        GPIO.output(24, GPIO.LOW)
-
-        self.bus = bus
-        self.ce = ce
         self.deviceID = deviceID
+        self.PIN_MCP_CS = pinCS
+        self.PIN_MCP_RESET = pinReset
+        self.spi = spi
         self._GPIOA = 0
         self._GPIOB = 0
         self._IODIRA = 0
         self._IODIRB = 0
         self._GPPUA = 0
         self._GPPUB = 0
-
+        self.spimode= 0b00
         self.isInitialized = False
+
+    def setupGPIO(self):
+        GPIO.setwarnings(False)
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(MCP23S17.PIN_MCP_CS, GPIO.OUT)
+        GPIO.output(MCP23S17.PIN_MCP_CS, True)
+        GPIO.setup(MCP23S17.PIN_MCP_RESET, GPIO.OUT)
+        GPIO.output(MCP23S17.PIN_MCP_RESET, True)
 
     def open(self):
         """Initializes the MCP23S17 with hardware-address access
         and sequential operations mode.
         """
-
-        self.spi.open(self.bus, self.ce)
+        self.setupGPIO()
         self.isInitialized = True
-
         self._writeRegister(MCP23S17.MCP23S17_IOCON, MCP23S17.IOCON_INIT)
 
         # set defaults
@@ -124,7 +122,6 @@ class MCP23S17(object):
     def close(self):
         """Closes the SPI connection that the MCP23S17 component is using.
         """
-
         self.spi.close()
         self.isInitialized = False
 
@@ -218,7 +215,6 @@ class MCP23S17(object):
                 return MCP23S17.LEVEL_LOW
         else:
             self._GPIOB = self._readRegister(MCP23S17.MCP23S17_GPIOB)
-            print "GPIOB: %s" % self._GPIOB
             pin &= 0x07
             if ((self._GPIOB & (1 << pin)) != 0):
                 return MCP23S17.LEVEL_HIGH
@@ -279,7 +275,6 @@ class MCP23S17(object):
         """
 
         assert(self.isInitialized)
-
         data = self._readRegisterWord(MCP23S17.MCP23S17_GPIOA)
         self._GPIOA = (data & 0xFF)
         self._GPIOB = (data >> 8)
@@ -289,13 +284,19 @@ class MCP23S17(object):
         assert(self.isInitialized)
 
         command = MCP23S17.MCP23S17_CMD_WRITE | ((self.deviceID) << 1)
+
+        self.setSpiMode(self.spimode)
+        GPIO.output(MCP23S17.PIN_MCP_CS, False)
         self.spi.xfer2([command, register, value])
+        GPIO.output(MCP23S17.PIN_MCP_CS, True)
 
     def _readRegister(self, register):
         assert(self.isInitialized)
-
         command = MCP23S17.MCP23S17_CMD_READ | ((self.deviceID) << 1)
+        self.setSpiMode(self.spimode)
+        GPIO.output(MCP23S17.PIN_MCP_CS, False)
         data = self.spi.xfer2([command, register, 0])
+        GPIO.output(MCP23S17.PIN_MCP_CS, True)
         return data[2]
 
     def _readRegisterWord(self, register):
@@ -312,29 +313,7 @@ class MCP23S17(object):
         self._writeRegister(register, data & 0xFF)
         self._writeRegister(register + 1, data >> 8)
 
-
-if __name__ == '__main__':
-    """The following demo periodically toggles the level of
-    all pins of two MCP23S17 conponents.
-    """
-
-    mcp1 = MCP23S17(deviceID=0x00)
-    mcp2 = MCP23S17(deviceID=0x01)
-    mcp1.open()
-    mcp2.open()
-
-    for x in range(0, 16):
-        mcp1.setDirection(x, mcp1.DIR_OUTPUT)
-        mcp2.setDirection(x, mcp1.DIR_OUTPUT)
-
-    print "Starting blinky on all pins (CTRL+C to quit)"
-    while (True):
-        for x in range(0, 16):
-            mcp1.digitalWrite(x, MCP23S17.LEVEL_HIGH)
-            mcp2.digitalWrite(x, MCP23S17.LEVEL_HIGH)
-        time.sleep(1)
-
-        for x in range(0, 16):
-            mcp1.digitalWrite(x, MCP23S17.LEVEL_LOW)
-            mcp2.digitalWrite(x, MCP23S17.LEVEL_LOW)
-        time.sleep(1)
+    def setSpiMode(self, mode):
+        if self.spi.mode != mode:
+            self.spi.mode = mode
+            self.spi.xfer2([0]) # dummy write, to force CLK to correct level
