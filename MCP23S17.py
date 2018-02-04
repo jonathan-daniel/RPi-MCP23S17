@@ -101,10 +101,10 @@ class MCP23S17(object):
     def setupGPIO(self):
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(MCP23S17.PIN_MCP_CS, GPIO.OUT)
-        GPIO.output(MCP23S17.PIN_MCP_CS, True)
-        GPIO.setup(MCP23S17.PIN_MCP_RESET, GPIO.OUT)
-        GPIO.output(MCP23S17.PIN_MCP_RESET, True)
+        GPIO.setup(self.PIN_MCP_CS, GPIO.OUT)
+        GPIO.output(self.PIN_MCP_CS, True)
+        GPIO.setup(self.PIN_MCP_RESET, GPIO.OUT)
+        GPIO.output(self.PIN_MCP_RESET, True)
 
     def open(self):
         """Initializes the MCP23S17 with hardware-address access
@@ -286,17 +286,17 @@ class MCP23S17(object):
         command = MCP23S17.MCP23S17_CMD_WRITE | ((self.deviceID) << 1)
 
         self.setSpiMode(self.spimode)
-        GPIO.output(MCP23S17.PIN_MCP_CS, False)
+        GPIO.output(self.PIN_MCP_CS, False)
         self.spi.xfer2([command, register, value])
-        GPIO.output(MCP23S17.PIN_MCP_CS, True)
+        GPIO.output(self.PIN_MCP_CS, True)
 
     def _readRegister(self, register):
         assert(self.isInitialized)
         command = MCP23S17.MCP23S17_CMD_READ | ((self.deviceID) << 1)
         self.setSpiMode(self.spimode)
-        GPIO.output(MCP23S17.PIN_MCP_CS, False)
+        GPIO.output(self.PIN_MCP_CS, False)
         data = self.spi.xfer2([command, register, 0])
-        GPIO.output(MCP23S17.PIN_MCP_CS, True)
+        GPIO.output(self.PIN_MCP_CS, True)
         return data[2]
 
     def _readRegisterWord(self, register):

@@ -1,2 +1,3 @@
 # distribution files
 *.tar.gz
+.pyc

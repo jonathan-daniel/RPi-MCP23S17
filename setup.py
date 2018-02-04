@@ -44,6 +44,6 @@ setup(name             = 'RPiMCP23S17',
       long_description = open('README.txt').read() + open('CHANGELOG.txt').read(),
       license          = 'MIT',
       keywords         = 'Raspberry Pi GPIO MCP23S17 SPI',
-      url              = 'http://github.com/petrockblog/RPi-MCP23S17',
+      url              = 'http://github.com/jonathan-daniel/RPi-MCP23S17',
       classifiers      = classifiers,
       packages         = ['RPiMCP23S17'])
